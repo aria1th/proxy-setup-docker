@@ -1,10 +1,11 @@
+import json
 from fastapi import FastAPI
 import uvicorn
 import requests
 from pydantic import BaseModel
 # auth  
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from fastapi import Depends, Response, status
+from fastapi import Depends, Response, status, Form
 import secrets
 from fastapi.exceptions import HTTPException
 import logging
@@ -13,7 +14,8 @@ import logging
 security = HTTPBasic()
 
 auth_dict = {
-    "user": "password_notdefault"
+    "user": "user",
+    "password": "password_notdefault"
 }
 
 def check_credentials(credentials: HTTPBasicCredentials = Depends(security)):
@@ -61,17 +63,24 @@ def get_response(url):
     return ModelResponse(response=r.text, success=True)
 
 @app.post("/post_response", response_model=ModelResponse, dependencies=[Depends(check_credentials)])
-def post_response(url, body):
+def post_response(url : str = Form(...), args_json : str = Form(...)):
     """
     Post response to url.
     Use curl +x http://127.0.0.1:8000/post_response?url=<url>
     """
-    r = requests.post(url, data=body)
+    args = json.loads(args_json)
+    data = args.get("data", {})
+    if data:
+        # print each types
+        print(data, type(data))
+    headers = args.get("headers", {})
+    r = requests.post(url, data=json.dumps(data), headers=headers)
     try:
         r.raise_for_status()
+        return ModelResponse(response=r.text, success=True)
     except requests.exceptions.HTTPError as e:
         logging.info(f"POST {url} returned {r.status_code}")
-        return ModelResponse(response=str(e), success=False)
+        return ModelResponse(response=f"Response returned {r.status_code}, {e}", success=False)
 
 if __name__ == "__main__":
     import argparse
