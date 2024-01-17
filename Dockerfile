@@ -12,7 +12,7 @@ COPY src/ /app
 RUN chmod +x proxy.py
 
 # Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir fastapi uvicorn requests pydantic
+RUN pip install --no-cache-dir fastapi uvicorn requests pydantic python-multipart
 
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
