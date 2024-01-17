@@ -1,4 +1,4 @@
-# install docker, depends on your machine, this example is for ubuntu
+#!/bin/sh
 # usage:
 # git clone <this repo>
 # cd <this repo>
