@@ -70,9 +70,6 @@ def post_response(url : str = Form(...), args_json : str = Form(...)):
     """
     args = json.loads(args_json)
     data = args.get("data", {})
-    if data:
-        # print each types
-        print(data, type(data))
     headers = args.get("headers", {})
     r = requests.post(url, data=json.dumps(data), headers=headers)
     try:
