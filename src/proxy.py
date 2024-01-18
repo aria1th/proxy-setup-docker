@@ -57,10 +57,62 @@ def get_response(url):
     try:
         r.raise_for_status()
     except requests.exceptions.HTTPError as e:
-        logging.info(f"GET {url} returned {r.status_code}")
         return ModelResponse(response=str(e), success=False)
-    logging.info(f"GET {url} returned {r.status_code}")
     return ModelResponse(response=r.text, success=True)
+
+@app.get("/get_response_raw", dependencies=[Depends(check_credentials)])
+def get_response_raw(url):
+    """
+    Get response from url.
+    """
+    r = requests.get(url)
+    try:
+        r.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        return Response(status_code=r.status_code)
+    content_type = r.headers.get("Content-Type")
+    if "application/json" in content_type:
+        return Response(content=r.content, media_type=content_type, headers=r.headers)
+    elif 'image' in content_type:
+        return Response(content=r.content, media_type=content_type, headers=r.headers)
+    elif 'application/octet-stream' in content_type:
+        return Response(content=r.content, media_type=content_type, headers=r.headers)
+    else:
+        return Response(content=r.text, media_type=content_type, headers=r.headers)
+
+@app.get("/filepart", dependencies=[Depends(check_credentials)])
+def get_response_raw_filepart(url, start: int, end: int):
+    """
+    Get response from url.
+    """
+    r = requests.get(url, headers={"Range": f"bytes={start}-{end}"})
+    try:
+        r.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        return Response(status_code=r.status_code)
+    content_type = r.headers.get("Content-Type")
+    if "application/json" in content_type:
+        return Response(content=r.content, media_type=content_type, headers=r.headers)
+    elif 'image' in content_type:
+        return Response(content=r.content, media_type=content_type, headers=r.headers)
+    elif 'application/octet-stream' in content_type:
+        return Response(content=r.content, media_type=content_type, headers=r.headers)
+    else:
+        return Response(content=r.text, media_type=content_type, headers=r.headers)
+
+@app.get("/file_size", dependencies=[Depends(check_credentials)])
+def head_response(url):
+    """
+    Get response from url.
+    """
+    r = requests.head(url)
+    try:
+        r.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        return Response(status_code=r.status_code)
+    # get file size header
+    file_size = r.headers.get("Content-Length")
+    return Response(content=file_size, media_type="text/plain")
 
 @app.post("/post_response", response_model=ModelResponse, dependencies=[Depends(check_credentials)])
 def post_response(url : str = Form(...), args_json : str = Form(...)):
@@ -76,7 +128,6 @@ def post_response(url : str = Form(...), args_json : str = Form(...)):
         r.raise_for_status()
         return ModelResponse(response=r.text, success=True)
     except requests.exceptions.HTTPError as e:
-        logging.info(f"POST {url} returned {r.status_code}")
         return ModelResponse(response=f"Response returned {r.status_code}, {e}", success=False)
 
 if __name__ == "__main__":
