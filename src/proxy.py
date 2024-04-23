@@ -60,6 +60,20 @@ def get_response(url):
         return ModelResponse(response=str(e), success=False)
     return ModelResponse(response=r.text, success=True)
 
+@app.get("/get_response_with_headers", response_model=ModelResponse, dependencies=[Depends(check_credentials)])
+def get_response_with_headers(url, headers):
+    """
+    Get response from url.
+    Use curl +x http://
+    """
+    #print(headers)
+    r = requests.get(url, headers=json.loads(headers))
+    print(r)
+    try:
+        r.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        return ModelResponse(response=str(e), success=False)
+    return ModelResponse(response=r.text, success=True)
 @app.get("/get_response_raw", dependencies=[Depends(check_credentials)])
 def get_response_raw(url):
     """
@@ -135,7 +149,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=str, default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--log-level", type=str, default="info")
+    parser.add_argument("--log-level", type=str, default="WARNING") # "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL
     parser.add_argument("--log-file", type=str, default="proxy.log")
     parser.add_argument("--auth", type=str, default="user:password_notdefault")
     args = parser.parse_args()
