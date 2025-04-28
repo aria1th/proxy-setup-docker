@@ -3,14 +3,14 @@ from fastapi import FastAPI
 import uvicorn
 import requests
 from pydantic import BaseModel
-# auth  
+# auth
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi import Depends, Response, status, Form
+from fastapi.responses import StreamingResponse
+
 import secrets
 from fastapi.exceptions import HTTPException
 import logging
-
-
 security = HTTPBasic()
 
 auth_dict = {
@@ -94,25 +94,40 @@ def get_response_raw(url):
     else:
         return Response(content=r.text, media_type=content_type, headers=r.headers)
 
+
+def clean_headers(src):
+    hop_by_hop = {
+        "connection",
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailers",
+        "transfer-encoding",
+        "upgrade",
+        "content-length",  # always recompute
+        "content-encoding",  # requests has already decoded the body
+    }
+    return {k: v for k, v in src.items() if k.lower() not in hop_by_hop}
+
+
 @app.get("/filepart", dependencies=[Depends(check_credentials)])
-def get_response_raw_filepart(url, start: int, end: int):
-    """
-    Get response from url.
-    """
-    r = requests.get(url, headers={"Range": f"bytes={start}-{end}"})
-    try:
-        r.raise_for_status()
-    except requests.exceptions.HTTPError as e:
-        return Response(status_code=r.status_code)
-    content_type = r.headers.get("Content-Type")
-    if "application/json" in content_type:
-        return Response(content=r.content, media_type=content_type, headers=r.headers)
-    elif 'image' in content_type:
-        return Response(content=r.content, media_type=content_type, headers=r.headers)
-    elif 'application/octet-stream' in content_type:
-        return Response(content=r.content, media_type=content_type, headers=r.headers)
-    else:
-        return Response(content=r.text, media_type=content_type, headers=r.headers)
+def filepart(url: str, start: int, end: int):
+    upstream_headers = {
+        "Range": f"bytes={start}-{end}",
+        "Accept-Encoding": "identity",
+    }
+    r = requests.get(url, headers=upstream_headers, stream=True)
+    r.raise_for_status()
+
+    headers = clean_headers(r.headers) 
+    return StreamingResponse(
+        r.raw,  # unbuffered, no decompression
+        status_code=r.status_code,
+        media_type=headers.get("Content-Type", "application/octet-stream"),
+        headers=headers,
+    )
+
 
 @app.get("/file_size", dependencies=[Depends(check_credentials)])
 def head_response(url):
@@ -148,7 +163,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=str, default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--port", type=int, default=80)
     parser.add_argument("--log-level", type=str, default="WARNING") # "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL
     parser.add_argument("--log-file", type=str, default="proxy.log")
     parser.add_argument("--auth", type=str, default="user:password_notdefault")
