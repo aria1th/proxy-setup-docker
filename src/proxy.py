@@ -75,24 +75,18 @@ def get_response_with_headers(url, headers):
         return ModelResponse(response=str(e), success=False)
     return ModelResponse(response=r.text, success=True)
 @app.get("/get_response_raw", dependencies=[Depends(check_credentials)])
-def get_response_raw(url):
-    """
-    Get response from url.
-    """
-    r = requests.get(url)
-    try:
-        r.raise_for_status()
-    except requests.exceptions.HTTPError as e:
-        return Response(status_code=r.status_code)
-    content_type = r.headers.get("Content-Type")
-    if "application/json" in content_type:
-        return Response(content=r.content, media_type=content_type, headers=r.headers)
-    elif 'image' in content_type:
-        return Response(content=r.content, media_type=content_type, headers=r.headers)
-    elif 'application/octet-stream' in content_type:
-        return Response(content=r.content, media_type=content_type, headers=r.headers)
-    else:
-        return Response(content=r.text, media_type=content_type, headers=r.headers)
+def get_response_raw(url: str):
+    upstream = requests.get(url, stream=True)
+    upstream.raise_for_status()
+
+    headers = clean_headers(upstream.headers)   # same hop-by-hop stripping
+    media   = headers.get("Content-Type", "application/octet-stream")
+
+    return StreamingResponse(
+        upstream.raw,        # pass the raw urllib3 socket-like object
+        media_type=media,
+        headers=headers
+    )
 
 
 def clean_headers(src):
